@@ -140,6 +140,7 @@ cython_debug/
 .vscode/
 *.swp
 *.swo
+.trae/
 
 # Project specific
 # Data files

@@ -12,7 +12,18 @@ class DataProvider(ABC):
     """
 
     @abstractmethod
-    def get_history(
+    def get_kline_per_day(
+        self,
+        date: date,
+    ) -> pd.DataFrame:
+        """
+        Download historical kline bars for a specific day.
+        Returns a DataFrame with columns matching Bar fields.
+        """
+        pass
+
+    @abstractmethod
+    def get_kline_per_symbol(
         self,
         symbol: str,
         start: Union[date, datetime],
@@ -20,7 +31,7 @@ class DataProvider(ABC):
         frequency: str = "1d",
     ) -> pd.DataFrame:
         """
-        Download historical bars.
+        Download historical kline bars for a specific symbol.
         Returns a DataFrame with columns matching Bar fields.
         """
         pass
@@ -75,9 +86,16 @@ class DataStorage(ABC):
     """
 
     @abstractmethod
-    def save_bars(self, data: pd.DataFrame, symbol: str, frequency: str):
+    def save_kline_for_day(self, data: pd.DataFrame, frequency: str):
         """
-        Save bars to storage.
+        Save kline bars for a specific day to storage.
+        """
+        pass
+
+    @abstractmethod
+    def save_kline_for_symbol(self, data: pd.DataFrame, symbol: str, frequency: str):
+        """
+        Save kline bars for a specific symbol to storage.
         """
         pass
 

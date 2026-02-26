@@ -38,7 +38,7 @@ class Contract(BaseModel):
 
 class Bar(BaseModel):
     symbol: str
-    dt: datetime
+    datetime: datetime
     open: float
     high: float
     low: float
@@ -52,7 +52,7 @@ class Bar(BaseModel):
 
 class Tick(BaseModel):
     symbol: str
-    dt: datetime
+    datetime: datetime
     price: float
     volume: float
     amount: Optional[float] = None

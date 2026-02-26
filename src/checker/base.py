@@ -3,6 +3,7 @@ from typing import List, Union
 import pandas as pd
 from datetime import date, datetime
 
+
 class DataChecker(ABC):
     """
     Abstract Base Class for Data Integrity Checking.
@@ -10,11 +11,11 @@ class DataChecker(ABC):
 
     @abstractmethod
     def check_continuity(
-        self, 
-        data: pd.DataFrame, 
-        start: Union[date, datetime], 
-        end: Union[date, datetime], 
-        calendar: List[date]
+        self,
+        data: pd.DataFrame,
+        start: Union[date, datetime],
+        end: Union[date, datetime],
+        calendar: List[date],
     ) -> List[str]:
         """
         Check for missing dates in the given range.
@@ -23,10 +24,8 @@ class DataChecker(ABC):
         pass
 
     @abstractmethod
-    def check_outliers(
-        self, 
-        data: pd.DataFrame, 
-        threshold: float = 0.2
+    def check_outliers_for_single_stock(
+        self, data: pd.DataFrame, threshold: float = 0.2
     ) -> pd.DataFrame:
         """
         Check for price jumps greater than the threshold (default 20%).
@@ -35,11 +34,30 @@ class DataChecker(ABC):
         pass
 
     @abstractmethod
-    def check_volume(
-        self, 
-        data: pd.DataFrame
-    ) -> pd.DataFrame:
+    def check_volume(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Check for zero volume on trading days.
+        """
+        pass
+
+    @abstractmethod
+    def check_logic_consistency(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Check for logical inconsistencies in OHLCV data.
+        e.g., high >= open/close/low, non-negative volume.
+        """
+        pass
+
+    @abstractmethod
+    def check_price_limit(
+        self,
+        data: pd.DataFrame,
+        market: str,
+    ) -> pd.DataFrame:
+        """
+        Check if price movements are within allowed limits.
+
+        * Given the price limits differ between markets,
+        we need to check the price limit for each market separately.
         """
         pass

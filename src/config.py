@@ -2,9 +2,12 @@ import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     # Base Paths
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    BASE_DIR: Path = (
+        Path(os.getenv("BASE_DIR")) or Path(__file__).resolve().parent.parent
+    )
     DATA_DIR: Path = BASE_DIR / "data"
     CONFIG_DIR: Path = BASE_DIR / "config"
     LOG_DIR: Path = BASE_DIR / "logs"
@@ -12,7 +15,7 @@ class Settings(BaseSettings):
     # Database & Storage
     METADATA_DB_URL: str = f"sqlite:///{DATA_DIR}/metadata.db"
     PARQUET_ROOT: Path = DATA_DIR / "history"
-    
+
     # ClickHouse (Real-time)
     CLICKHOUSE_HOST: str = "localhost"
     CLICKHOUSE_PORT: int = 9000
@@ -21,7 +24,7 @@ class Settings(BaseSettings):
     CLICKHOUSE_DB: str = "quant_data"
 
     # Vendor: Tushare
-    TUSHARE_TOKEN: str = ""
+    TUSHARE_TOKEN: str = os.getenv("TUSHARE_TOKEN", "")
 
     # Vendor: Interactive Brokers
     IB_HOST: str = "127.0.0.1"
@@ -42,7 +45,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), "..", ".env"),
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
     def create_dirs(self):
@@ -51,5 +54,11 @@ class Settings(BaseSettings):
         self.PARQUET_ROOT.mkdir(exist_ok=True, parents=True)
         self.LOG_DIR.mkdir(exist_ok=True)
 
+
 settings = Settings()
 settings.create_dirs()
+
+print(settings.BASE_DIR)
+print(settings.DATA_DIR)
+print(settings.PARQUET_ROOT)
+print(settings.LOG_DIR)

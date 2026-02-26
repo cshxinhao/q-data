@@ -1,7 +1,9 @@
 import click
-from datetime import datetime, date
+import time
+from datetime import datetime
 import logging
 from typing import List
+import pandas as pd
 
 from .config import settings
 from .vendors.tushare_provider import TushareProvider
@@ -24,16 +26,28 @@ def cli():
     pass
 
 
+def try_n_times(task: callable, n: int = 3, seconds: int = 5, **kwargs) -> any:
+    """Try a task n times with delay between each try."""
+    for i in range(n):
+        try:
+            result = task(**kwargs)
+            return result
+        except Exception as e:
+            logger.error(f"Attempt {i + 1} failed: {e}")
+            if i < n - 1:
+                time.sleep(seconds)
+    return None
+
+
 @cli.command()
 @click.option(
     "--vendor", type=click.Choice(["tushare", "xt", "ib", "futu"]), required=True
 )
-@click.option("--symbol", required=True, help="Symbol (e.g., 000001.SZ)")
 @click.option("--start", required=True, help="YYYY-MM-DD")
 @click.option("--end", required=True, help="YYYY-MM-DD")
-@click.option("--frequency", default="1d", help="1d, 1m")
-def download(vendor, symbol, start, end, frequency):
-    """Download historical data."""
+@click.option("--frequency", default="1d", help="1d, 1m, 1h")
+def download_cs_range(vendor, start, end, frequency):
+    """Download historical data: cross-sectionally for a range of dates."""
     start_dt = datetime.strptime(start, "%Y-%m-%d")
     end_dt = datetime.strptime(end, "%Y-%m-%d")
 
@@ -45,28 +59,48 @@ def download(vendor, symbol, start, end, frequency):
         click.echo("Vendor not implemented yet")
         return
 
-    logger.info(f"Downloading {symbol} from {start} to {end}...")
-    df = provider.get_history(symbol, start_dt, end_dt, frequency)
+    if frequency != "1d":
+        raise NotImplementedError(
+            "Only daily frequency supported for cross-section download"
+        )
 
-    if df.empty:
-        logger.warning("No data found.")
-        return
+    logger.info(f"Downloading {vendor} {frequency} from {start} to {end}...")
 
-    # Check data integrity
+    # Check data integrity after downloading for all days?
+    # Or check data integrity for each day?
+    # If check for each day, we can save the data for each day to Parquet.
+    # If check after downloading for all days, we can save the data for all days to Parquet.
+    # Let's check & save for each day first
+
     checker = SimpleChecker()
-    # Assume we have a calendar available (stub for now)
-    # missing = checker.check_continuity(df, start_dt, end_dt, calendar=[])
-    # if missing:
-    #     logger.warning(f"Missing dates: {len(missing)}")
+    store = ParquetStorage(settings.DATA_DIR / "history" / frequency / vendor)
+    for dt in reversed(pd.date_range(start_dt, end_dt)):
+        date = dt.date()
 
-    outliers = checker.check_outliers(df)
-    if not outliers.empty:
-        logger.warning(f"Found {len(outliers)} outliers.")
+        df = try_n_times(
+            task=provider.get_kline_per_day,
+            n=5,
+            seconds=10,
+            date=date,
+        )
 
-    # Save
-    store = ParquetStorage()
-    store.save_bars(df, symbol, frequency)
-    logger.info(f"Saved {len(df)} records to Parquet.")
+        if df is None:
+            logger.warning(f"Failed downloading {frequency} kline for {date}")
+            continue
+
+        if df.empty():
+            logger.warning(f"No data found for {date}")
+            continue
+
+        zero_volume_records = checker.check_volume(df)
+        if not zero_volume_records.empty:
+            logger.warning(f"Found {len(zero_volume_records)} zero volume records.")
+
+        # Save
+        store.save_kline_for_day(df, frequency)
+        logger.info(f"{date}: Saved {len(df)} records to Parquet.")
+
+        time.sleep(1)  # prevent from downloading too fast
 
 
 @cli.command()

@@ -10,38 +10,52 @@ from ..core.models import Tick, Bar
 from ..core.interfaces import DataStorage
 from ..config import settings
 
-class ParquetStorage(DataStorage):
-    def __init__(self, root_dir: Optional[Path] = None):
-        self.root_dir = root_dir or settings.PARQUET_ROOT
 
-    def _get_path(self, symbol: str, frequency: str) -> Path:
+class ParquetStorage(DataStorage):
+    def __init__(self, root_dir: Path):
+        self.root_dir = root_dir
+
+    def _get_path_by_symbol(self, symbol: str, frequency: str) -> Path:
         """
         Partition strategy: frequency / symbol.parquet
         Example: data/history/1d/000001.SZ.parquet
         """
         return self.root_dir / frequency / f"{symbol}.parquet"
 
-    def save_bars(self, data: pd.DataFrame, symbol: str, frequency: str):
+    def _get_path_by_date(self, date: date, frequency: str) -> Path:
+        """
+        Partition strategy: frequency / date.parquet
+        Example: data/history/1d/2023-01-01.parquet
+        """
+        return self.root_dir / frequency / f"{date.isoformat()}.parquet"
+
+    def save_kline_for_day(self, data: pd.DataFrame, frequency: str):
         if data.empty:
             return
 
-        path = self._get_path(symbol, frequency)
+        path = self._get_path_by_symbol("dummy", frequency)
+
+    def save_kline_for_symbol(self, data: pd.DataFrame, symbol: str, frequency: str):
+        if data.empty:
+            return
+
+        path = self._get_path_by_symbol(symbol, frequency)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Ensure 'dt' is datetime and set as index if not already
-        if 'dt' in data.columns:
-            data = data.set_index('dt')
-        
+        if "dt" in data.columns:
+            data = data.set_index("dt")
+
         # Write to parquet
-        # If file exists, we might want to append or overwrite. 
-        # For simplicity in MVP, we overwrite or merge. 
+        # If file exists, we might want to append or overwrite.
+        # For simplicity in MVP, we overwrite or merge.
         # Here we implement a merge strategy: load existing, combine, dedup, save.
-        
+
         if path.exists():
             existing_df = pd.read_parquet(path)
             combined = pd.concat([existing_df, data])
             # Drop duplicates based on index (dt)
-            combined = combined[~combined.index.duplicated(keep='last')]
+            combined = combined[~combined.index.duplicated(keep="last")]
             combined.sort_index(inplace=True)
             combined.to_parquet(path)
         else:
@@ -49,13 +63,13 @@ class ParquetStorage(DataStorage):
             data.to_parquet(path)
 
     def load_bars(
-        self, 
-        symbol: str, 
-        start: Union[date, datetime], 
-        end: Union[date, datetime], 
-        frequency: str
+        self,
+        symbol: str,
+        start: Union[date, datetime],
+        end: Union[date, datetime],
+        frequency: str,
     ) -> pd.DataFrame:
-        path = self._get_path(symbol, frequency)
+        path = self._get_path_by_symbol(symbol, frequency)
         if not path.exists():
             return pd.DataFrame()
 
@@ -64,9 +78,9 @@ class ParquetStorage(DataStorage):
         # To optimize, we can use filters in read_parquet if we partition by date.
         # Since we partition by symbol, we load the file and filter in memory.
         # For very large files, we should partition by Year/Month.
-        
+
         df = pd.read_parquet(path)
-        
+
         # Ensure index is datetime
         if not isinstance(df.index, pd.DatetimeIndex):
             df.index = pd.to_datetime(df.index)
