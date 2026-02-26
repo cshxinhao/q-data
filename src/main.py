@@ -73,9 +73,12 @@ def download_cs_range(vendor, start, end, frequency):
     # Let's check & save for each day first
 
     checker = SimpleChecker()
-    store = ParquetStorage()
-    for dt in reversed(pd.date_range(start_dt, end_dt)):
-        date = dt.date()
+    store = ParquetStorage(vendor=vendor, frequency=frequency)
+    for date in reversed(pd.date_range(start_dt, end_dt, freq="B").date):
+        path = store._get_path_by_date(date)
+        if path.exists():
+            logger.warning(f"File {path} already exists. Skip.")
+            continue
 
         df = try_n_times(
             task=provider.get_kline_per_date,
@@ -88,17 +91,12 @@ def download_cs_range(vendor, start, end, frequency):
             logger.warning(f"Failed downloading {frequency} kline for {date}")
             continue
 
-        if df.empty:
-            logger.warning(f"No data found for {date}")
-            continue
-
         zero_volume_records = checker.check_volume(df)
         if not zero_volume_records.empty:
             logger.warning(f"Found {len(zero_volume_records)} zero volume records.")
 
         # Save
-        store.save_kline_for_date(df, date, frequency)
-        logger.info(f"{date}: Saved {len(df)} records to Parquet.")
+        store.save_kline_for_date(df, date)
 
         time.sleep(1)  # prevent from downloading too fast
 

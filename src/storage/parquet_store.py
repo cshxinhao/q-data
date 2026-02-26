@@ -6,10 +6,20 @@ from datetime import date as cdate, datetime as cdatetime
 from typing import Union, List, Optional
 import os
 import warnings
+import logging
+
 
 from ..core.models import Tick, Bar
 from ..core.interfaces import DataStorage
 from ..config import settings
+
+
+# Setup logging
+logging.basicConfig(
+    level=settings.LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 class ParquetStorage(DataStorage):
@@ -18,8 +28,11 @@ class ParquetStorage(DataStorage):
         vendor: str,
         frequency: str,
         root_dir: Optional[Path] = None,
+        replace_existing: bool = False,
     ):
         self.root_dir = root_dir or settings.PARQUET_ROOT / frequency / vendor
+        self.replace_existing = replace_existing
+        warnings.warn("!! Replace existing files if they exist.")
 
     def _get_path_by_symbol(self, symbol: str) -> Path:
         """
@@ -36,16 +49,14 @@ class ParquetStorage(DataStorage):
         return self.root_dir / "by_date" / f"{date.isoformat()}.parquet"
 
     def save_kline_for_date(self, data: pd.DataFrame, date: cdate):
-        if data.empty:
-            return
-
         path = self._get_path_by_date(date)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        if path.exists():
+        if path.exists() and not self.replace_existing:
             warnings.warn(f"File {path} already exists. Skip.")
         else:
             data.to_parquet(path)
+            logger.info(f"{date}: Saved {len(data)} records to Parquet.")
 
     def load_kline_for_date(self, date: cdate) -> pd.DataFrame:
         path = self._get_path_by_date(date)
@@ -58,9 +69,6 @@ class ParquetStorage(DataStorage):
         return df
 
     def save_kline_for_symbol(self, data: pd.DataFrame, symbol: str):
-        if data.empty:
-            return
-
         path = self._get_path_by_symbol(symbol)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -69,7 +77,7 @@ class ParquetStorage(DataStorage):
         # For simplicity in MVP, we overwrite or merge.
         # Here we implement a merge strategy: load existing, combine, dedup, save.
 
-        if path.exists():
+        if path.exists() and not self.replace_existing:
             existing_df = pd.read_parquet(path)
             combined = pd.concat([existing_df, data])
             # Drop duplicates based on index (dt)

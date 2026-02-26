@@ -41,6 +41,11 @@ class TushareProvider(DataProvider):
             }
         )
 
+        # Unit
+        df["volume"] *= 100
+        df["amount"] *= 1000
+
+        # Add columns
         df["datetime"] = pd.to_datetime(df["datetime"])
         df["frequency"] = "1d"
         df["vwap"] = df["amount"] / df["volume"]
@@ -48,7 +53,7 @@ class TushareProvider(DataProvider):
         # Select standard columns
         # cols = ["datetime", "open", "high", "low", "close", "vwap", "volume", "amount"]
         # Return all columns to preserve vendor-specific fields
-        return df.sort_values("datetime")
+        return df
 
     def get_kline_per_symbol(
         self,
@@ -80,9 +85,6 @@ class TushareProvider(DataProvider):
         else:
             raise NotImplementedError("Only daily data supported for Tushare MVP")
 
-        if df.empty:
-            return pd.DataFrame()
-
         # Rename columns to match Bar model
         # Tushare: trade_date, open, high, low, close, vol, amount
         df = df.rename(
@@ -93,13 +95,14 @@ class TushareProvider(DataProvider):
             }
         )
 
-        df["datetime"] = pd.to_datetime(df["datetime"])
-        df["frequency"] = frequency
-        df["vwap"] = df["amount"] / df["volume"]
-
         # Unit
         df["volume"] *= 100
         df["amount"] *= 1000
+
+        # Add columns
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df["frequency"] = frequency
+        df["vwap"] = df["amount"] / df["volume"]
 
         # Select standard columns
         # cols = ["datetime", "open", "high", "low", "close", "vwap", "volume", "amount"]
@@ -132,7 +135,10 @@ class TushareProvider(DataProvider):
         raise NotImplementedError("Tushare does not support real-time subscription")
 
     def get_calendar(
-        self, exchange: str, start: Union[cdate, cdatetime], end: Union[cdate, cdatetime]
+        self,
+        exchange: str,
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
     ) -> List[TradeCalendar]:
         start_str = start.strftime("%Y%m%d")
         end_str = end.strftime("%Y%m%d")
@@ -199,4 +205,3 @@ class TushareProvider(DataProvider):
                         )
                     )
         return funds
-    
