@@ -1,6 +1,6 @@
 import click
 import time
-from datetime import datetime
+from datetime import date as cdate, datetime as cdatetime
 import logging
 from typing import List
 import pandas as pd
@@ -48,8 +48,8 @@ def try_n_times(task: callable, n: int = 3, seconds: int = 5, **kwargs) -> any:
 @click.option("--frequency", default="1d", help="1d, 1m, 1h")
 def download_cs_range(vendor, start, end, frequency):
     """Download historical data: cross-sectionally for a range of dates."""
-    start_dt = datetime.strptime(start, "%Y-%m-%d")
-    end_dt = datetime.strptime(end, "%Y-%m-%d")
+    start_dt = cdatetime.strptime(start, "%Y-%m-%d")
+    end_dt = cdatetime.strptime(end, "%Y-%m-%d")
 
     if vendor == "tushare":
         provider = TushareProvider()
@@ -73,12 +73,12 @@ def download_cs_range(vendor, start, end, frequency):
     # Let's check & save for each day first
 
     checker = SimpleChecker()
-    store = ParquetStorage(settings.DATA_DIR / "history" / frequency / vendor)
+    store = ParquetStorage()
     for dt in reversed(pd.date_range(start_dt, end_dt)):
         date = dt.date()
 
         df = try_n_times(
-            task=provider.get_kline_per_day,
+            task=provider.get_kline_per_date,
             n=5,
             seconds=10,
             date=date,
@@ -88,7 +88,7 @@ def download_cs_range(vendor, start, end, frequency):
             logger.warning(f"Failed downloading {frequency} kline for {date}")
             continue
 
-        if df.empty():
+        if df.empty:
             logger.warning(f"No data found for {date}")
             continue
 
@@ -97,7 +97,7 @@ def download_cs_range(vendor, start, end, frequency):
             logger.warning(f"Found {len(zero_volume_records)} zero volume records.")
 
         # Save
-        store.save_kline_for_day(df, frequency)
+        store.save_kline_for_date(df, date, frequency)
         logger.info(f"{date}: Saved {len(df)} records to Parquet.")
 
         time.sleep(1)  # prevent from downloading too fast
@@ -138,7 +138,7 @@ def subscribe(vendor, symbols):
 @click.option("--date", required=True, help="YYYY-MM-DD")
 def consolidate(date):
     """Run EOD consolidation."""
-    target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    target_date = cdatetime.strptime(date, "%Y-%m-%d").date()
     consolidate_daily(target_date)
 
 

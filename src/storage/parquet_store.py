@@ -2,9 +2,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pathlib import Path
-from datetime import date, datetime
+from datetime import date as cdate, datetime as cdatetime
 from typing import Union, List, Optional
 import os
+import warnings
 
 from ..core.models import Tick, Bar
 from ..core.interfaces import DataStorage
@@ -12,39 +13,56 @@ from ..config import settings
 
 
 class ParquetStorage(DataStorage):
-    def __init__(self, root_dir: Path):
-        self.root_dir = root_dir
+    def __init__(
+        self,
+        vendor: str,
+        frequency: str,
+        root_dir: Optional[Path] = None,
+    ):
+        self.root_dir = root_dir or settings.PARQUET_ROOT / frequency / vendor
 
-    def _get_path_by_symbol(self, symbol: str, frequency: str) -> Path:
+    def _get_path_by_symbol(self, symbol: str) -> Path:
         """
         Partition strategy: frequency / symbol.parquet
         Example: data/history/1d/000001.SZ.parquet
         """
-        return self.root_dir / frequency / f"{symbol}.parquet"
+        return self.root_dir / "by_symbol" / f"{symbol}.parquet"
 
-    def _get_path_by_date(self, date: date, frequency: str) -> Path:
+    def _get_path_by_date(self, date: cdate) -> Path:
         """
         Partition strategy: frequency / date.parquet
         Example: data/history/1d/2023-01-01.parquet
         """
-        return self.root_dir / frequency / f"{date.isoformat()}.parquet"
+        return self.root_dir / "by_date" / f"{date.isoformat()}.parquet"
 
-    def save_kline_for_day(self, data: pd.DataFrame, frequency: str):
+    def save_kline_for_date(self, data: pd.DataFrame, date: cdate):
         if data.empty:
             return
 
-        path = self._get_path_by_symbol("dummy", frequency)
-
-    def save_kline_for_symbol(self, data: pd.DataFrame, symbol: str, frequency: str):
-        if data.empty:
-            return
-
-        path = self._get_path_by_symbol(symbol, frequency)
+        path = self._get_path_by_date(date)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Ensure 'dt' is datetime and set as index if not already
-        if "dt" in data.columns:
-            data = data.set_index("dt")
+        if path.exists():
+            warnings.warn(f"File {path} already exists. Skip.")
+        else:
+            data.to_parquet(path)
+
+    def load_kline_for_date(self, date: cdate) -> pd.DataFrame:
+        path = self._get_path_by_date(date)
+        if not path.exists():
+            return pd.DataFrame()
+
+        # Read parquet
+        df = pd.read_parquet(path)
+
+        return df
+
+    def save_kline_for_symbol(self, data: pd.DataFrame, symbol: str):
+        if data.empty:
+            return
+
+        path = self._get_path_by_symbol(symbol)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write to parquet
         # If file exists, we might want to append or overwrite.
@@ -62,14 +80,13 @@ class ParquetStorage(DataStorage):
             data.sort_index(inplace=True)
             data.to_parquet(path)
 
-    def load_bars(
+    def load_kline_for_symbol(
         self,
         symbol: str,
-        start: Union[date, datetime],
-        end: Union[date, datetime],
-        frequency: str,
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
     ) -> pd.DataFrame:
-        path = self._get_path_by_symbol(symbol, frequency)
+        path = self._get_path_by_symbol(symbol)
         if not path.exists():
             return pd.DataFrame()
 

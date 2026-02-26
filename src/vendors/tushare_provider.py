@@ -1,7 +1,7 @@
 import tushare as ts
 import pandas as pd
 from typing import List, Union, Dict, Callable, Any
-from datetime import date, datetime
+from datetime import date as cdate, datetime as cdatetime
 
 from ..core.interfaces import DataProvider
 from ..core.models import (
@@ -23,9 +23,9 @@ class TushareProvider(DataProvider):
             raise ValueError("Tushare token is required")
         self.pro = ts.pro_api(self.token)
 
-    def get_kline_per_day(
+    def get_kline_per_date(
         self,
-        date: date,
+        date: cdate,
     ) -> pd.DataFrame:
         date_str = date.strftime("%Y%m%d")
 
@@ -53,8 +53,8 @@ class TushareProvider(DataProvider):
     def get_kline_per_symbol(
         self,
         symbol: str,
-        start: Union[date, datetime],
-        end: Union[date, datetime],
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
         frequency: str = "1d",
     ) -> pd.DataFrame:
         """
@@ -116,7 +116,7 @@ class TushareProvider(DataProvider):
             # Simple conversion
             tick = Tick(
                 symbol=symbol,
-                datetime=datetime.now(),  # Approximate
+                datetime=cdatetime.now(),  # Approximate
                 price=float(row["price"]),
                 volume=float(row["volume"]),
                 amount=float(row["amount"]),
@@ -132,7 +132,7 @@ class TushareProvider(DataProvider):
         raise NotImplementedError("Tushare does not support real-time subscription")
 
     def get_calendar(
-        self, exchange: str, start: Union[date, datetime], end: Union[date, datetime]
+        self, exchange: str, start: Union[cdate, cdatetime], end: Union[cdate, cdatetime]
     ) -> List[TradeCalendar]:
         start_str = start.strftime("%Y%m%d")
         end_str = end.strftime("%Y%m%d")
@@ -155,7 +155,7 @@ class TushareProvider(DataProvider):
         return calendars
 
     def get_adjustments(
-        self, symbol: str, start: Union[date, datetime], end: Union[date, datetime]
+        self, symbol: str, start: Union[cdate, cdatetime], end: Union[cdate, cdatetime]
     ) -> List[Adjustment]:
         # Tushare adj_factor
         df = self.pro.adj_factor(
@@ -178,7 +178,7 @@ class TushareProvider(DataProvider):
         return adjs
 
     def get_fundamentals(
-        self, symbol: str, date: Union[date, datetime]
+        self, symbol: str, date: Union[cdate, cdatetime]
     ) -> List[Fundamental]:
         date_str = date.strftime("%Y%m%d")
         df = self.pro.daily_basic(ts_code=symbol, trade_date=date_str)

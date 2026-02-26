@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Callable, Optional, Any, Union
-from datetime import date, datetime
+from datetime import date as cdate, datetime as cdatetime
 import pandas as pd
 
 from .models import Tick, Bar, Contract, TradeCalendar, Adjustment, Fundamental
@@ -12,9 +12,9 @@ class DataProvider(ABC):
     """
 
     @abstractmethod
-    def get_kline_per_day(
+    def get_kline_per_date(
         self,
-        date: date,
+        date: cdate,
     ) -> pd.DataFrame:
         """
         Download historical kline bars for a specific day.
@@ -26,8 +26,8 @@ class DataProvider(ABC):
     def get_kline_per_symbol(
         self,
         symbol: str,
-        start: Union[date, datetime],
-        end: Union[date, datetime],
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
         frequency: str = "1d",
     ) -> pd.DataFrame:
         """
@@ -54,7 +54,10 @@ class DataProvider(ABC):
     # Reference Data
     @abstractmethod
     def get_calendar(
-        self, exchange: str, start: Union[date, datetime], end: Union[date, datetime]
+        self,
+        exchange: str,
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
     ) -> List[TradeCalendar]:
         """
         Get trading calendar.
@@ -63,7 +66,10 @@ class DataProvider(ABC):
 
     @abstractmethod
     def get_adjustments(
-        self, symbol: str, start: Union[date, datetime], end: Union[date, datetime]
+        self,
+        symbol: str,
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
     ) -> List[Adjustment]:
         """
         Get splits and dividends.
@@ -72,7 +78,7 @@ class DataProvider(ABC):
 
     @abstractmethod
     def get_fundamentals(
-        self, symbol: str, date: Union[date, datetime]
+        self, symbol: str, date: Union[cdate, cdatetime]
     ) -> List[Fundamental]:
         """
         Get fundamental data for a specific date (or period).
@@ -86,9 +92,18 @@ class DataStorage(ABC):
     """
 
     @abstractmethod
-    def save_kline_for_day(self, data: pd.DataFrame, frequency: str):
+    def save_kline_for_date(
+        self, data: pd.DataFrame, date: cdate, frequency: str
+    ):
         """
-        Save kline bars for a specific day to storage.
+        Save kline bars for a specific date to storage.
+        """
+        pass
+
+    @abstractmethod
+    def load_kline_for_date(self, date: cdate, frequency: str) -> pd.DataFrame:
+        """
+        Load kline bars for a specific date from storage.
         """
         pass
 
@@ -100,15 +115,15 @@ class DataStorage(ABC):
         pass
 
     @abstractmethod
-    def load_bars(
+    def load_kline_for_symbol(
         self,
         symbol: str,
-        start: Union[date, datetime],
-        end: Union[date, datetime],
+        start: Union[cdate, cdatetime],
+        end: Union[cdate, cdatetime],
         frequency: str,
     ) -> pd.DataFrame:
         """
-        Load bars from storage.
+        Load kline bars from storage.
         """
         pass
 
