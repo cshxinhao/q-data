@@ -5,9 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Base Paths
-    BASE_DIR: Path = (
-        Path(os.getenv("BASE_DIR")) or Path(__file__).resolve().parent.parent
-    )
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent
     DATA_DIR: Path = BASE_DIR / "data"
     CONFIG_DIR: Path = BASE_DIR / "config"
     LOG_DIR: Path = BASE_DIR / "logs"
@@ -57,8 +55,3 @@ class Settings(BaseSettings):
 
 settings = Settings()
 settings.create_dirs()
-
-print(settings.BASE_DIR)
-print(settings.DATA_DIR)
-print(settings.PARQUET_ROOT)
-print(settings.LOG_DIR)
